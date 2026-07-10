@@ -3,15 +3,30 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckCircle2, Circle, GraduationCap, RotateCcw } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  GraduationCap,
+  RotateCcw,
+} from "lucide-react";
 
 import { LEARNING_PATH, LEVEL_BADGE_VARIANT } from "@/lib/lessons";
+import type { LessonLevel } from "@/lib/lessons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProgress } from "@/hooks/use-progress";
 import { cn } from "@/lib/utils";
+
+function levelFromPathname(pathname: string): LessonLevel | null {
+  for (const section of LEARNING_PATH) {
+    if (section.lessons.some((lesson) => pathname === `/learn/${lesson.id}`)) {
+      return section.level;
+    }
+  }
+  return null;
+}
 
 export function LessonSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -22,6 +37,36 @@ export function LessonSidebar({ onNavigate }: { onNavigate?: () => void }) {
     reset,
   } = useProgress();
   const pct = totalLessons > 0 ? (completedLessonCount / totalLessons) * 100 : 0;
+  const activeLevel = levelFromPathname(pathname);
+
+  // Sections start expanded; users can collapse any of them.
+  const [collapsed, setCollapsed] = React.useState<Set<LessonLevel>>(
+    () => new Set(),
+  );
+  const [prevActiveLevel, setPrevActiveLevel] = React.useState(activeLevel);
+
+  // When navigating into a level, re-expand that section so the active lesson is visible.
+  // (React-recommended "adjust state when props change" pattern — no effect needed.)
+  if (activeLevel !== prevActiveLevel) {
+    setPrevActiveLevel(activeLevel);
+    if (activeLevel && collapsed.has(activeLevel)) {
+      const next = new Set(collapsed);
+      next.delete(activeLevel);
+      setCollapsed(next);
+    }
+  }
+
+  const toggleSection = React.useCallback((level: LessonLevel) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(level)) {
+        next.delete(level);
+      } else {
+        next.add(level);
+      }
+      return next;
+    });
+  }, []);
 
   const handleReset = React.useCallback(() => {
     if (completedLessonCount === 0) return;
@@ -32,8 +77,8 @@ export function LessonSidebar({ onNavigate }: { onNavigate?: () => void }) {
   }, [completedLessonCount, reset]);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b px-4 py-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <GraduationCap className="size-4 text-primary" />
           Lộ trình học SQL
@@ -58,54 +103,101 @@ export function LessonSidebar({ onNavigate }: { onNavigate?: () => void }) {
         )}
       </div>
 
-      <ScrollArea className="flex-1">
-        <nav className="space-y-5 px-3 py-4">
-          {LEARNING_PATH.map((section) => (
-            <div key={section.level}>
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+      {/*
+        Native overflow scrolling is more reliable than Radix ScrollArea inside
+        a sticky flex sidebar (flex children need min-h-0 + a real overflow box).
+      */}
+      <nav
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-gutter:stable]"
+        aria-label="Danh sách bài học"
+      >
+        {LEARNING_PATH.map((section) => {
+          const isOpen = !collapsed.has(section.level);
+          const completedInSection = section.lessons.filter((lesson) =>
+            isLessonComplete(lesson.id),
+          ).length;
+          const sectionActive = activeLevel === section.level;
+
+          return (
+            <div key={section.level} className="rounded-lg">
+              <button
+                type="button"
+                onClick={() => toggleSection(section.level)}
+                aria-expanded={isOpen}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors",
+                  "hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                  sectionActive && "bg-sidebar-accent/40",
+                )}
+              >
+                <ChevronDown
+                  className={cn(
+                    "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                    !isOpen && "-rotate-90",
+                  )}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                   {section.label}
                 </span>
-                <Badge variant={LEVEL_BADGE_VARIANT[section.level]} className="text-[10px]">
+                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80">
+                  {completedInSection}/{section.lessons.length}
+                </span>
+                <Badge
+                  variant={LEVEL_BADGE_VARIANT[section.level]}
+                  className="text-[10px]"
+                >
                   {section.lessons.length}
                 </Badge>
-              </div>
-              <ul className="space-y-0.5">
-                {section.lessons.map((lesson) => {
-                  const active = pathname === `/learn/${lesson.id}`;
-                  const done = isLessonComplete(lesson.id);
-                  return (
-                    <li key={lesson.id}>
-                      <Link
-                        href={`/learn/${lesson.id}`}
-                        onClick={onNavigate}
-                        className={cn(
-                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                          active
-                            ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
-                        )}
-                      >
-                        {done ? (
-                          <CheckCircle2 className="size-4 shrink-0 text-success" />
-                        ) : (
-                          <Circle
+              </button>
+
+              <div
+                className={cn(
+                  "grid transition-[grid-template-rows] duration-200 ease-out",
+                  isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                )}
+              >
+                <div className="overflow-hidden">
+                  <ul className="space-y-0.5 pb-2 pl-1">
+                    {section.lessons.map((lesson) => {
+                      const active = pathname === `/learn/${lesson.id}`;
+                      const done = isLessonComplete(lesson.id);
+                      return (
+                        <li key={lesson.id}>
+                          <Link
+                            href={`/learn/${lesson.id}`}
+                            onClick={onNavigate}
                             className={cn(
-                              "size-4 shrink-0",
-                              active ? "text-primary" : "text-muted-foreground/40",
+                              "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                              active
+                                ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                             )}
-                          />
-                        )}
-                        <span className="truncate">{lesson.title}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                          >
+                            {done ? (
+                              <CheckCircle2 className="size-4 shrink-0 text-success" />
+                            ) : (
+                              <Circle
+                                className={cn(
+                                  "size-4 shrink-0",
+                                  active
+                                    ? "text-primary"
+                                    : "text-muted-foreground/40",
+                                )}
+                              />
+                            )}
+                            <span className="truncate">{lesson.title}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
             </div>
-          ))}
-        </nav>
-      </ScrollArea>
+          );
+        })}
+      </nav>
     </div>
   );
 }

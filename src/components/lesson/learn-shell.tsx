@@ -11,8 +11,8 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1700px] flex-1">
-      {/* Desktop sidebar */}
-      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-72 shrink-0 border-r bg-sidebar lg:block">
+      {/* Desktop sidebar: fixed viewport height so inner nav can scroll */}
+      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-72 shrink-0 overflow-hidden border-r bg-sidebar lg:block">
         <LessonSidebar />
       </aside>
 
@@ -32,13 +32,15 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute top-0 left-0 h-full w-72 max-w-[82%] border-r bg-sidebar shadow-xl">
-            <div className="flex justify-end p-2">
+          <div className="absolute top-0 left-0 flex h-full w-72 max-w-[82%] flex-col overflow-hidden border-r bg-sidebar shadow-xl">
+            <div className="flex shrink-0 justify-end p-2">
               <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)}>
                 <X className="size-4" />
               </Button>
             </div>
-            <LessonSidebar onNavigate={() => setOpen(false)} />
+            <div className="min-h-0 flex-1">
+              <LessonSidebar onNavigate={() => setOpen(false)} />
+            </div>
           </div>
         </div>
       )}
