@@ -12,17 +12,16 @@ import {
 } from "lucide-react";
 
 import { LEARNING_PATH, LEVEL_BADGE_VARIANT } from "@/lib/lessons";
-import type { LessonLevel } from "@/lib/lessons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useProgress } from "@/hooks/use-progress";
 import { cn } from "@/lib/utils";
 
-function levelFromPathname(pathname: string): LessonLevel | null {
+function sectionFromPathname(pathname: string): string | null {
   for (const section of LEARNING_PATH) {
     if (section.lessons.some((lesson) => pathname === `/learn/${lesson.id}`)) {
-      return section.level;
+      return section.id;
     }
   }
   return null;
@@ -37,32 +36,31 @@ export function LessonSidebar({ onNavigate }: { onNavigate?: () => void }) {
     reset,
   } = useProgress();
   const pct = totalLessons > 0 ? (completedLessonCount / totalLessons) * 100 : 0;
-  const activeLevel = levelFromPathname(pathname);
+  const activeSection = sectionFromPathname(pathname);
 
   // Sections start expanded; users can collapse any of them.
-  const [collapsed, setCollapsed] = React.useState<Set<LessonLevel>>(
-    () => new Set(),
-  );
-  const [prevActiveLevel, setPrevActiveLevel] = React.useState(activeLevel);
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
+  const [prevActiveSection, setPrevActiveSection] =
+    React.useState(activeSection);
 
-  // When navigating into a level, re-expand that section so the active lesson is visible.
+  // When navigating into a section, re-expand it so the active lesson is visible.
   // (React-recommended "adjust state when props change" pattern — no effect needed.)
-  if (activeLevel !== prevActiveLevel) {
-    setPrevActiveLevel(activeLevel);
-    if (activeLevel && collapsed.has(activeLevel)) {
+  if (activeSection !== prevActiveSection) {
+    setPrevActiveSection(activeSection);
+    if (activeSection && collapsed.has(activeSection)) {
       const next = new Set(collapsed);
-      next.delete(activeLevel);
+      next.delete(activeSection);
       setCollapsed(next);
     }
   }
 
-  const toggleSection = React.useCallback((level: LessonLevel) => {
+  const toggleSection = React.useCallback((sectionId: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      if (next.has(level)) {
-        next.delete(level);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
       } else {
-        next.add(level);
+        next.add(sectionId);
       }
       return next;
     });
@@ -112,17 +110,17 @@ export function LessonSidebar({ onNavigate }: { onNavigate?: () => void }) {
         aria-label="Danh sách bài học"
       >
         {LEARNING_PATH.map((section) => {
-          const isOpen = !collapsed.has(section.level);
+          const isOpen = !collapsed.has(section.id);
           const completedInSection = section.lessons.filter((lesson) =>
             isLessonComplete(lesson.id),
           ).length;
-          const sectionActive = activeLevel === section.level;
+          const sectionActive = activeSection === section.id;
 
           return (
-            <div key={section.level} className="rounded-lg">
+            <div key={section.id} className="rounded-lg">
               <button
                 type="button"
-                onClick={() => toggleSection(section.level)}
+                onClick={() => toggleSection(section.id)}
                 aria-expanded={isOpen}
                 className={cn(
                   "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors",

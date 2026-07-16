@@ -1,6 +1,7 @@
 import { BASIC_LESSONS } from "./basic";
 import { INTERMEDIATE_LESSONS } from "./intermediate";
 import { ADVANCED_LESSONS } from "./advanced";
+import { ORACLE_LESSONS } from "./oracle";
 import { LEVEL_LABELS, type Lesson, type LessonLevel } from "./types";
 
 export * from "./types";
@@ -10,23 +11,42 @@ export const ALL_LESSONS: Lesson[] = [
   ...BASIC_LESSONS,
   ...INTERMEDIATE_LESSONS,
   ...ADVANCED_LESSONS,
+  ...ORACLE_LESSONS,
 ];
 
 export interface PathSection {
+  id: string;
   level: LessonLevel;
   label: string;
   lessons: Lesson[];
 }
 
-/** Sidebar structure grouped by level. */
+/** Sidebar/overview structure. Oracle stays separate because it uses PL/SQL. */
 export const LEARNING_PATH: PathSection[] = [
-  { level: "beginner", label: LEVEL_LABELS.beginner, lessons: BASIC_LESSONS },
   {
+    id: "beginner",
+    level: "beginner",
+    label: LEVEL_LABELS.beginner,
+    lessons: BASIC_LESSONS,
+  },
+  {
+    id: "intermediate",
     level: "intermediate",
     label: LEVEL_LABELS.intermediate,
     lessons: INTERMEDIATE_LESSONS,
   },
-  { level: "advanced", label: LEVEL_LABELS.advanced, lessons: ADVANCED_LESSONS },
+  {
+    id: "advanced",
+    level: "advanced",
+    label: LEVEL_LABELS.advanced,
+    lessons: ADVANCED_LESSONS,
+  },
+  {
+    id: "oracle",
+    level: "advanced",
+    label: "Oracle PL/SQL",
+    lessons: ORACLE_LESSONS,
+  },
 ];
 
 const LESSON_BY_ID = new Map(ALL_LESSONS.map((l) => [l.id, l]));

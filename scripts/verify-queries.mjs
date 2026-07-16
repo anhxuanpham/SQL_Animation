@@ -1,6 +1,7 @@
-// Ad-hoc verification: extract every initialQuery/solutionQuery/verifyQuery
-// from the lesson files and run each against a FRESH seeded database to ensure
-// they are valid SQL against the schema. Run: node scripts/verify-queries.mjs
+// Ad-hoc verification: extract every SQLite initialQuery/solutionQuery/
+// verifyQuery and run each against a FRESH seeded database. Oracle PL/SQL lives
+// in its own lesson file and is structurally checked in the browser because
+// sql.js cannot parse or execute Oracle program units.
 import initSqlJs from "sql.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,6 +27,10 @@ const lessonFiles = [
   "src/lib/lessons/intermediate.ts",
   "src/lib/lessons/advanced.ts",
 ];
+const skippedDialectFiles = ["src/lib/lessons/oracle.ts"];
+const skippedDialectLessonCount = (
+  readFile("src/lib/lessons/oracle.ts").match(/^\s+id:\s*"oracle-/gm) ?? []
+).length;
 const queryRe = /\b(initialQuery|solutionQuery|verifyQuery)\s*:\s*("(?:[^"\\]|\\.)*")/g;
 
 const queries = [];
@@ -62,6 +67,9 @@ for (const q of queries) {
 console.log(`Total queries: ${queries.length}`);
 console.log(`Passed:        ${pass}`);
 console.log(`Failed:        ${failures.length}`);
+console.log(
+  `Skipped:       ${skippedDialectFiles.length} Oracle PL/SQL file / ${skippedDialectLessonCount} lessons (not executable by SQLite)`,
+);
 if (failures.length) {
   console.log("\n--- FAILURES ---");
   for (const f of failures) {

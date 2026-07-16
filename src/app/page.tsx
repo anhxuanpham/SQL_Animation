@@ -26,8 +26,8 @@ const FEATURES = [
   },
   {
     icon: FlaskConical,
-    title: "Thực hành SQL thật",
-    desc: "SQLite chạy ngay trong trình duyệt. Viết query, chạy thật, kiểm tra bài tập tự động.",
+    title: "Thực hành theo dialect",
+    desc: "SQLite chạy thật trong trình duyệt; Oracle PL/SQL có editor riêng, mô phỏng procedure/cursor và chấm cấu trúc.",
   },
 ];
 
@@ -65,7 +65,7 @@ export default function Home() {
             <p className="mt-4 flex items-center gap-1.5 text-sm text-muted-foreground">
               <Database className="size-3.5" />
               {LEARNING_PATH.reduce((n, s) => n + s.lessons.length, 0)}+ bài học ·
-              Cơ bản → Nâng cao
+              Cơ bản → Nâng cao → Oracle PL/SQL
             </p>
           </div>
 
@@ -97,9 +97,9 @@ export default function Home() {
         <h2 className="mb-6 text-center text-2xl font-bold tracking-tight">
           Lộ trình rõ ràng theo từng cấp độ
         </h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {LEARNING_PATH.map((section) => (
-            <Card key={section.level} className="gap-3">
+            <Card key={section.id} className="gap-3">
               <CardContent className="space-y-3 pt-0">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">{section.label}</h3>

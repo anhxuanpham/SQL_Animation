@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { sql, SQLite } from "@codemirror/lang-sql";
+import { sql, PLSQL, SQLite } from "@codemirror/lang-sql";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, Decoration, type DecorationSet } from "@codemirror/view";
 import { StateField, StateEffect } from "@codemirror/state";
 import { useTheme } from "next-themes";
 
 import { TABLE_SCHEMAS } from "@/lib/db/seed";
+import type { SqlDialect } from "@/lib/lessons/types";
 
 export interface EditorErrorMarker {
   line?: number;
@@ -22,6 +23,7 @@ export interface CodeMirrorEditorProps {
   editable?: boolean;
   minHeight?: string;
   errorMarkers?: EditorErrorMarker[];
+  dialect?: SqlDialect;
 }
 
 const AUTOCOMPLETE_SCHEMA: Record<string, string[]> = Object.fromEntries(
@@ -104,6 +106,7 @@ export default function CodeMirrorEditor({
   editable = true,
   minHeight = "150px",
   errorMarkers,
+  dialect = "sqlite",
 }: CodeMirrorEditorProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== "light";
@@ -112,7 +115,7 @@ export default function CodeMirrorEditor({
   const extensions = React.useMemo(
     () => [
       sql({
-        dialect: SQLite,
+        dialect: dialect === "oracle" ? PLSQL : SQLite,
         schema: AUTOCOMPLETE_SCHEMA,
         upperCaseKeywords: true,
       }),
@@ -120,7 +123,7 @@ export default function CodeMirrorEditor({
       EditorView.lineWrapping,
       errorLineField,
     ],
-    [],
+    [dialect],
   );
 
   React.useEffect(() => {

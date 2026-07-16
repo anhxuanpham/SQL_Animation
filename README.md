@@ -1,8 +1,8 @@
 # SQL Visual Academy
 
-Nền tảng học SQL từ cơ bản đến nâng cao, tập trung vào việc **giải thích trực quan quá trình thực thi câu lệnh SQL bằng animation**. Mỗi bài học có lý thuyết ngắn gọn, trình mô phỏng từng bước (`FROM → WHERE → SELECT → ORDER BY …`), và một khu vực thực hành chạy **SQLite thật ngay trong trình duyệt** (qua WebAssembly).
+Nền tảng học SQL từ cơ bản đến Oracle PL/SQL, tập trung vào việc **giải thích trực quan quá trình thực thi câu lệnh bằng animation**. Các bài SQL chuẩn có khu vực thực hành chạy **SQLite thật ngay trong trình duyệt** (qua WebAssembly); track Oracle gồm 11 bài về Stored Procedure, Package và Cursor, dùng editor PL/SQL, nhiều mô hình mô phỏng riêng và bài tập chấm cấu trúc vì browser không nhúng Oracle Server.
 
-> Không dùng mock: mọi truy vấn trong phần thực hành đều được thực thi thật bằng `sql.js`.
+> Các bài SQLite không dùng mock: truy vấn được thực thi thật bằng `sql.js`. Nội dung Oracle luôn được gắn nhãn mô phỏng và cần Oracle Database + SQL Developer/SQLcl để chạy nguyên bản.
 
 ---
 
@@ -22,7 +22,7 @@ npm run dev
 npm run build
 npm run start
 
-# Kiểm tra tính hợp lệ của toàn bộ SQL trong các bài học
+# Kiểm tra tính hợp lệ của toàn bộ query dùng dialect SQLite
 npm run verify-queries
 ```
 
@@ -47,6 +47,7 @@ Không cần backend hay database server — tất cả chạy phía client.
 - `sql.js` được nạp lúc runtime từ `public/sqljs/` bằng cách chèn thẻ `<script>`, **không bundle** vào JS. Cách này tránh việc Turbopack cố resolve các Node built-in (`fs`, `path`) trong glue code của Emscripten.
 - Mỗi bài học dùng một database SQLite **độc lập** (`createDatabase()`), nên thao tác INSERT/UPDATE/DELETE ở bài này không ảnh hưởng bài khác.
 - Trình kiểm tra bài tập và các visualizer cho mutation dùng `SAVEPOINT … ROLLBACK` để tính trạng thái "sau khi chạy" mà **không làm thay đổi** database thực hành.
+- Track Oracle dùng dialect `PLSQL` của CodeMirror, visualizer riêng cho procedure/package/cursor và bộ chấm theo thành phần bắt buộc/cấm; không gửi PL/SQL sang SQLite.
 
 ---
 
@@ -80,6 +81,8 @@ src/
 │   │   ├── mutation-visualizer.tsx# INSERT / UPDATE / DELETE
 │   │   ├── index-visualizer.tsx   # Full scan vs Index lookup
 │   │   ├── transaction-visualizer.tsx # COMMIT / ROLLBACK
+│   │   ├── procedure-visualizer.tsx # Oracle procedure/package lifecycle
+│   │   ├── cursor-visualizer.tsx # Implicit/explicit/FOR UPDATE/ref cursor
 │   │   └── shared.tsx             # Helper: màu clause, format giá trị
 │   ├── lesson/
 │   │   ├── lesson-workspace.tsx   # Bộ điều phối 1 bài học (state, DB, tiến độ)
@@ -108,6 +111,7 @@ src/
     │   ├── basic.ts               # Bài cơ bản
     │   ├── intermediate.ts        # Bài trung cấp
     │   ├── advanced.ts            # Bài nâng cao
+    │   ├── oracle.ts              # Track Oracle PL/SQL (mô phỏng riêng)
     │   ├── index.ts               # Gộp + LEARNING_PATH + getLesson/getAdjacentLessons
     │   └── exercise-checker.ts    # So khớp kết quả learner vs đáp án
     ├── visualizer/
@@ -116,7 +120,7 @@ src/
     └── progress/progress-store.ts # Store tiến độ (localStorage)
 
 public/sqljs/                      # sql-wasm.js + sql-wasm.wasm (nạp lúc runtime)
-scripts/verify-queries.mjs         # Kiểm tra mọi câu SQL trong bài học
+scripts/verify-queries.mjs         # Kiểm tra query SQLite; chủ đích bỏ qua PL/SQL
 ```
 
 ---
@@ -143,6 +147,7 @@ interface Lesson {
   id: string;                 // slug + id, ví dụ "where-basics"
   title: string;
   level: "beginner" | "intermediate" | "advanced";
+  dialect?: "sqlite" | "oracle"; // mặc định sqlite
   category: string;           // nhãn nhóm hiển thị ở sidebar
   summary: string;            // mô tả 1 dòng
   description: string;        // đoạn giới thiệu
@@ -151,8 +156,10 @@ interface Lesson {
   tables: string[];           // bảng liên quan (key của TABLE_SCHEMAS)
   initialQuery: string;       // query mặc định trong editor
   visualization: {
-    type: "select" | "join" | "group" | "mutation" | "index" | "transaction" | "none";
+    type: "select" | "join" | "group" | "mutation" | "index" | "transaction" | "procedure" | "cursor" | "none";
     query?: string;           // query dùng cho animation (mặc định = initialQuery)
+    oracleVariant?: "lifecycle" | "parameters" | "select-into" | "exception" | "transaction" | "package";
+    oracleCursorVariant?: "implicit" | "explicit" | "for-loop" | "for-update" | "ref-cursor";
   };
   steps?: LessonStep[];       // lời dẫn từng bước (tùy chọn, phủ lên narration tự sinh)
   exercises: ExerciseSpec[];
@@ -170,6 +177,11 @@ interface ExerciseSpec {
   hint: string;
   orderInsensitive?: boolean; // so sánh không quan tâm thứ tự dòng (khi không có ORDER BY)
   verifyQuery?: string;       // với INSERT/UPDATE/DELETE: SELECT để so sánh trạng thái bảng sau đó
+  validation?: {              // cho dialect không chạy được bằng sql.js
+    mode: "structure";
+    requirements: { label: string; pattern: string }[];
+    forbidden?: { label: string; pattern: string }[];
+  };
   starterQuery?: string;
   successMessage?: string;
 }
@@ -179,7 +191,7 @@ interface ExerciseSpec {
 
 ## 6. Cách thêm một bài học mới
 
-1. Mở file cấp độ phù hợp: `src/lib/lessons/basic.ts`, `intermediate.ts` hoặc `advanced.ts`.
+1. Mở file phù hợp: `src/lib/lessons/basic.ts`, `intermediate.ts`, `advanced.ts` hoặc `oracle.ts`.
 2. Thêm một object `Lesson` vào mảng. Ví dụ tối giản:
 
 ```ts
@@ -212,7 +224,7 @@ interface ExerciseSpec {
 ```
 
 3. Vị trí trong mảng quyết định **thứ tự** trong lộ trình và nút Trước/Tiếp.
-4. Chạy `npm run verify-queries` để chắc chắn mọi `initialQuery`/`solutionQuery`/`verifyQuery` hợp lệ với schema.
+4. Với SQLite, chạy `npm run verify-queries` để chắc chắn mọi query hợp lệ với schema. Với Oracle, dùng `dialect: "oracle"` và `validation.mode: "structure"`.
 
 Không cần khai báo route — trang bài học sinh tự động từ `id` qua `generateStaticParams`.
 
@@ -223,6 +235,8 @@ Không cần khai báo route — trang bài học sinh tự động từ `id` qu
 - `group` — có `GROUP BY` hoặc hàm tổng hợp.
 - `mutation` — `INSERT` / `UPDATE` / `DELETE`.
 - `index`, `transaction` — visualizer chuyên biệt.
+- `procedure` — visualizer Oracle PL/SQL chuyên biệt, không đưa code sang SQLite.
+- `cursor` — visualizer lifecycle cho implicit cursor, explicit cursor, cursor FOR LOOP, FOR UPDATE và SYS_REFCURSOR.
 - `none` — chỉ chạy query và hiển thị kết quả (khi không cần animation chi tiết). Nếu query không phân tích được để dựng animation, hệ thống tự hiển thị thông báo: *"Truy vấn này chạy được nhưng chưa hỗ trợ animation chi tiết."*
 
 ---

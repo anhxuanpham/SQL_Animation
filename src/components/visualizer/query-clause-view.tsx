@@ -17,6 +17,10 @@ interface KeywordMap {
 
 // Longest / multi-word keywords first so they win in the alternation.
 const KEYWORDS: KeywordMap[] = [
+  { kw: "CREATE OR REPLACE PROCEDURE", clause: "PROCEDURE" },
+  { kw: "RAISE_APPLICATION_ERROR", clause: "EXCEPTION" },
+  { kw: "WHERE CURRENT OF", clause: "CURRENT OF" },
+  { kw: "FOR UPDATE", clause: "FOR UPDATE" },
   { kw: "GROUP BY", clause: "GROUP BY" },
   { kw: "ORDER BY", clause: "ORDER BY" },
   { kw: "INNER JOIN", clause: "JOIN" },
@@ -41,6 +45,15 @@ const KEYWORDS: KeywordMap[] = [
   { kw: "COMMIT", clause: "COMMIT" },
   { kw: "ROLLBACK", clause: "ROLLBACK" },
   { kw: "CREATE", clause: "CREATE" },
+  { kw: "PROCEDURE", clause: "PROCEDURE" },
+  { kw: "CURSOR", clause: "CURSOR" },
+  { kw: "FETCH", clause: "FETCH" },
+  { kw: "CLOSE", clause: "CLOSE" },
+  { kw: "OPEN", clause: "OPEN" },
+  { kw: "LOOP", clause: "LOOP" },
+  { kw: "EXCEPTION", clause: "EXCEPTION" },
+  { kw: "IF", clause: "IF" },
+  { kw: "OUT", clause: "OUT" },
   { kw: "OVER", clause: "OVER" },
   { kw: "WITH", clause: "WITH" },
 ];

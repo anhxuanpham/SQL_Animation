@@ -69,6 +69,26 @@ function resultsMatch(a, b, orderInsensitive) {
   return rowsKey(a.rows, orderInsensitive) === rowsKey(b.rows, orderInsensitive);
 }
 
+function stripSqlComments(sql) {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--.*$/gm, " ");
+}
+
+function missingStructureRequirements(sql, requirements) {
+  const source = stripSqlComments(sql);
+  return requirements.filter(
+    ({ pattern, flags }) => !new RegExp(pattern, flags ?? "i").test(source),
+  );
+}
+
+function presentForbiddenPatterns(sql, forbidden) {
+  const source = stripSqlComments(sql);
+  return forbidden.filter(({ pattern, flags }) =>
+    new RegExp(pattern, flags ?? "i").test(source),
+  );
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 let passed = 0;
@@ -131,6 +151,63 @@ test("NULL cells compare equal", () => {
   const a = { columns: ["x"], rows: [[null]] };
   const b = { columns: ["x"], rows: [[null]] };
   assert.equal(resultsMatch(a, b, false), true);
+});
+
+console.log("Oracle structure checker");
+const procedureRequirements = [
+  {
+    label: "procedure header",
+    pattern: "\\bcreate\\s+or\\s+replace\\s+procedure\\s+give_bonus\\b",
+  },
+  {
+    label: "row count OUT",
+    pattern: "\\bp_count\\s*:=\\s*sql%rowcount\\b",
+  },
+];
+
+test("accepts required Oracle procedure structure", () => {
+  const sql = `
+    CREATE OR REPLACE PROCEDURE give_bonus AS
+    BEGIN
+      p_count := SQL%ROWCOUNT;
+    END;
+    /
+  `;
+  assert.deepEqual(missingStructureRequirements(sql, procedureRequirements), []);
+});
+
+test("does not count requirements hidden in comments", () => {
+  const sql = `
+    -- CREATE OR REPLACE PROCEDURE give_bonus
+    BEGIN
+      /* p_count := SQL%ROWCOUNT; */
+      NULL;
+    END;
+    /
+  `;
+  assert.equal(
+    missingStructureRequirements(sql, procedureRequirements).length,
+    procedureRequirements.length,
+  );
+});
+
+test("rejects transaction control forbidden inside a reusable procedure", () => {
+  const sql = `
+    CREATE OR REPLACE PROCEDURE update_total AS
+    BEGIN
+      UPDATE orders SET total = 99;
+      COMMIT;
+    END;
+    /
+  `;
+  const forbidden = [
+    { label: "COMMIT", pattern: "\\bcommit\\b" },
+    { label: "ROLLBACK", pattern: "\\brollback\\b" },
+  ];
+  assert.deepEqual(
+    presentForbiddenPatterns(sql, forbidden).map((item) => item.label),
+    ["COMMIT"],
+  );
 });
 
 console.log(`\n${passed} tests passed`);

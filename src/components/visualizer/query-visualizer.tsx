@@ -4,7 +4,13 @@ import * as React from "react";
 import { Info, Sparkles, AlertCircle } from "lucide-react";
 
 import type { SqlDatabase } from "@/lib/db/sql-engine";
-import type { LessonStep, SqlClause, VisualizationType } from "@/lib/lessons/types";
+import type {
+  LessonStep,
+  OracleCursorVariant,
+  OracleProcedureVariant,
+  SqlClause,
+  VisualizationType,
+} from "@/lib/lessons/types";
 import { buildVizPlan } from "@/lib/visualizer/plan";
 import { useStepPlayer } from "@/hooks/use-step-player";
 
@@ -20,6 +26,8 @@ import { TransactionVisualizer } from "./transaction-visualizer";
 import { CteVisualizer } from "./cte-visualizer";
 import { SubqueryVisualizer } from "./subquery-visualizer";
 import { WindowVisualizer } from "./window-visualizer";
+import { ProcedureVisualizer } from "./procedure-visualizer";
+import { CursorVisualizer } from "./cursor-visualizer";
 import { ResultTable, type ResultTableError } from "@/components/editor/result-table";
 import { CLAUSE_META } from "@/lib/lessons/types";
 
@@ -27,6 +35,8 @@ interface QueryVisualizerProps {
   db: SqlDatabase | null;
   query: string;
   type: VisualizationType;
+  oracleVariant?: OracleProcedureVariant;
+  oracleCursorVariant?: OracleCursorVariant;
   authoredSteps?: LessonStep[];
   tables: string[];
   /** True when visualizing the lesson's canonical demo query. */
@@ -162,7 +172,12 @@ function AnimatedVisualizer({
   tables: string[];
   isCanonical: boolean;
 }) {
-  const preferred = type === "none" ? "none" : type;
+  // `procedure` is intercepted by QueryVisualizer before this component.
+  // Keep a defensive fallback so the planner only receives its supported set.
+  const preferred =
+    type === "none" || type === "procedure" || type === "cursor"
+      ? "none"
+      : type;
   const plan = React.useMemo(
     () =>
       buildVizPlan(db, query, preferred, authoredSteps, {
@@ -260,6 +275,8 @@ export function QueryVisualizer({
   db,
   query,
   type,
+  oracleVariant,
+  oracleCursorVariant,
   authoredSteps,
   tables,
   isCanonical = false,
@@ -277,6 +294,26 @@ export function QueryVisualizer({
   }
   if (type === "transaction" && isCanonical) {
     return <TransactionVisualizer db={db} query={query} />;
+  }
+  if (type === "procedure") {
+    return (
+      <ProcedureVisualizer
+        db={db}
+        query={query}
+        variant={oracleVariant}
+        authoredSteps={authoredSteps}
+      />
+    );
+  }
+  if (type === "cursor") {
+    return (
+      <CursorVisualizer
+        db={db}
+        query={query}
+        variant={oracleCursorVariant}
+        authoredSteps={authoredSteps}
+      />
+    );
   }
 
   return (

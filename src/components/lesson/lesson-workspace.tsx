@@ -67,6 +67,8 @@ export function LessonWorkspace({
   } = useProgress();
 
   const canonicalQuery = lesson.visualization.query ?? lesson.initialQuery;
+  const dialect = lesson.dialect ?? "sqlite";
+  const isOracle = dialect === "oracle";
 
   const [query, setQuery] = React.useState(lesson.initialQuery);
   const [vizQuery, setVizQuery] = React.useState(canonicalQuery);
@@ -89,11 +91,15 @@ export function LessonWorkspace({
     completedLessonCount >= totalLessons && totalLessons > 0;
 
   const handleRun = React.useCallback(() => {
-    const oc = run(query);
-    setOutcome(oc);
+    if (isOracle) {
+      setOutcome(null);
+    } else {
+      const oc = run(query);
+      setOutcome(oc);
+      setDataVersion((v) => v + 1);
+    }
     setHasRun(true);
     setVizQuery(query);
-    setDataVersion((v) => v + 1);
     // On mobile, jump to the visualizer tab after run
     setMobileTab("viz");
     if (typeof window !== "undefined" && window.innerWidth < 1024) {
@@ -101,16 +107,20 @@ export function LessonWorkspace({
         vizRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }
-  }, [run, query]);
+  }, [run, query, isOracle]);
 
   const handleReset = React.useCallback(() => {
     setResetting(true);
     reset();
+    if (isOracle) {
+      setQuery(lesson.initialQuery);
+      setVizQuery(canonicalQuery);
+    }
     setOutcome(null);
     setHasRun(false);
     setDataVersion((v) => v + 1);
     setTimeout(() => setResetting(false), 250);
-  }, [reset]);
+  }, [reset, isOracle, lesson.initialQuery, canonicalQuery]);
 
   const handleExerciseComplete = React.useCallback(
     (exId: string) => {
@@ -202,6 +212,7 @@ export function LessonWorkspace({
             hasRun={hasRun}
             ready={ready}
             resetting={resetting}
+            dialect={dialect}
           />
         </CardContent>
       </Card>
@@ -216,6 +227,7 @@ export function LessonWorkspace({
             exercises={lesson.exercises}
             completedIds={doneSet}
             onComplete={handleExerciseComplete}
+            dialect={dialect}
           />
         </CardContent>
       </Card>
@@ -249,6 +261,8 @@ export function LessonWorkspace({
             db={db}
             query={vizQuery}
             type={lesson.visualization.type}
+            oracleVariant={lesson.visualization.oracleVariant}
+            oracleCursorVariant={lesson.visualization.oracleCursorVariant}
             authoredSteps={authoredSteps}
             tables={lesson.tables}
             isCanonical={isCanonical}

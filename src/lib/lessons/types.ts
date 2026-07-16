@@ -7,6 +7,20 @@
  */
 
 export type LessonLevel = "beginner" | "intermediate" | "advanced";
+export type SqlDialect = "sqlite" | "oracle";
+export type OracleProcedureVariant =
+  | "lifecycle"
+  | "parameters"
+  | "select-into"
+  | "exception"
+  | "transaction"
+  | "package";
+export type OracleCursorVariant =
+  | "implicit"
+  | "explicit"
+  | "for-loop"
+  | "for-update"
+  | "ref-cursor";
 
 /** SQL clauses we can highlight in the editor + narration. */
 export type SqlClause =
@@ -29,7 +43,18 @@ export type SqlClause =
   | "BEGIN"
   | "COMMIT"
   | "ROLLBACK"
-  | "CREATE";
+  | "CREATE"
+  | "PROCEDURE"
+  | "IF"
+  | "OUT"
+  | "EXCEPTION"
+  | "CURSOR"
+  | "OPEN"
+  | "FETCH"
+  | "LOOP"
+  | "CLOSE"
+  | "FOR UPDATE"
+  | "CURRENT OF";
 
 /** Which animated visualizer a lesson uses. */
 export type VisualizationType =
@@ -42,6 +67,8 @@ export type VisualizationType =
   | "cte" // WITH … AS materialize then outer query
   | "subquery" // scalar subquery bubble then outer filter
   | "window" // PARTITION + ROW_NUMBER
+  | "procedure" // Oracle PL/SQL stored procedure lifecycle
+  | "cursor" // Oracle implicit/explicit/ref cursor lifecycle
   | "none"; // theory only (no dedicated animation)
 
 export interface KeyTerm {
@@ -72,6 +99,23 @@ export interface ExerciseSpec {
    * compare the resulting table state instead of the (empty) mutation result.
    */
   verifyQuery?: string;
+  /**
+   * Structural validation for dialects that cannot execute in the in-browser
+   * SQLite engine (currently Oracle PL/SQL).
+   */
+  validation?: {
+    mode: "structure";
+    requirements: {
+      label: string;
+      pattern: string;
+      flags?: string;
+    }[];
+    forbidden?: {
+      label: string;
+      pattern: string;
+      flags?: string;
+    }[];
+  };
   successMessage?: string;
 }
 
@@ -79,6 +123,10 @@ export interface LessonVisualization {
   type: VisualizationType;
   /** Query the animation is built from (defaults to the lesson's initialQuery). */
   query?: string;
+  /** Selects the teaching model used by the Oracle procedure visualizer. */
+  oracleVariant?: OracleProcedureVariant;
+  /** Selects the teaching model used by the Oracle cursor visualizer. */
+  oracleCursorVariant?: OracleCursorVariant;
 }
 
 export interface Lesson {
@@ -86,6 +134,8 @@ export interface Lesson {
   id: string;
   title: string;
   level: LessonLevel;
+  /** Defaults to SQLite; Oracle lessons use a PL/SQL-aware editor + simulator. */
+  dialect?: SqlDialect;
   /** Section label used to group lessons in the sidebar. */
   category: string;
   /** One-line summary for cards + sidebar. */
@@ -148,4 +198,15 @@ export const CLAUSE_META: Record<
   COMMIT: { token: "clause-from", label: "Lưu thay đổi" },
   ROLLBACK: { token: "clause-orderby", label: "Hủy thay đổi" },
   CREATE: { token: "clause-limit", label: "Tạo đối tượng" },
+  PROCEDURE: { token: "clause-limit", label: "Biên dịch và lưu procedure" },
+  IF: { token: "clause-where", label: "Kiểm tra điều kiện" },
+  OUT: { token: "clause-groupby", label: "Trả giá trị qua tham số OUT" },
+  EXCEPTION: { token: "clause-orderby", label: "Chặn và báo lỗi nghiệp vụ" },
+  CURSOR: { token: "clause-limit", label: "Khai báo result-set cursor" },
+  OPEN: { token: "clause-from", label: "Mở cursor và chạy query" },
+  FETCH: { token: "clause-select", label: "Đọc dòng hiện tại" },
+  LOOP: { token: "clause-groupby", label: "Lặp qua các dòng" },
+  CLOSE: { token: "clause-orderby", label: "Đóng và giải phóng cursor" },
+  "FOR UPDATE": { token: "clause-where", label: "Khóa các dòng sẽ cập nhật" },
+  "CURRENT OF": { token: "clause-join", label: "Cập nhật dòng cursor hiện tại" },
 };

@@ -67,6 +67,58 @@ function buildDiffSummary(learner: QueryResult, expected: QueryResult): string {
   return parts.join(" ");
 }
 
+function stripSqlComments(sql: string): string {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--.*$/gm, " ");
+}
+
+function checkStructure(
+  exercise: ExerciseSpec,
+  learnerQuery: string,
+): CheckResult {
+  const requirements = exercise.validation?.requirements ?? [];
+  const forbidden = exercise.validation?.forbidden ?? [];
+  const source = stripSqlComments(learnerQuery);
+  const missing = requirements.filter(({ pattern, flags }) => {
+    try {
+      return !new RegExp(pattern, flags ?? "i").test(source);
+    } catch {
+      return true;
+    }
+  });
+  const presentForbidden = forbidden.filter(({ pattern, flags }) => {
+    try {
+      return new RegExp(pattern, flags ?? "i").test(source);
+    } catch {
+      return true;
+    }
+  });
+
+  if (missing.length === 0 && presentForbidden.length === 0) {
+    return {
+      status: "pass",
+      message:
+        exercise.successMessage ??
+        "Đúng cấu trúc! Các thành phần bắt buộc đều đã có.",
+      learnerResult: null,
+    };
+  }
+
+  return {
+    status: "fail",
+    message:
+      missing.length > 0
+        ? `Còn thiếu ${missing.length} thành phần trong PL/SQL.`
+        : `Có ${presentForbidden.length} thành phần không nên xuất hiện.`,
+    learnerResult: null,
+    diffSummary: [
+      ...missing.map((item) => `Thiếu: ${item.label}`),
+      ...presentForbidden.map((item) => `Không dùng: ${item.label}`),
+    ].join(" · "),
+  };
+}
+
 /**
  * Run the learner's query and the reference solution on two fresh, isolated
  * databases and compare. For mutation exercises (`verifyQuery` set), the
@@ -83,6 +135,10 @@ export async function checkExercise(
       message: "Hãy nhập câu lệnh trước khi kiểm tra.",
       learnerResult: null,
     };
+  }
+
+  if (exercise.validation?.mode === "structure") {
+    return checkStructure(exercise, learnerQuery);
   }
 
   const learnerDb = await createDatabase();

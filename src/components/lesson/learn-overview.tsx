@@ -55,7 +55,7 @@ export function LearnOverview() {
 
       <div className="space-y-10">
         {LEARNING_PATH.map((section) => (
-          <section key={section.level}>
+          <section key={section.id}>
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-xl font-semibold">{section.label}</h2>
               <Badge variant={LEVEL_BADGE_VARIANT[section.level]}>

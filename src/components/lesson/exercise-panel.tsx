@@ -16,13 +16,14 @@ import { Badge } from "@/components/ui/badge";
 import { SqlEditor } from "@/components/editor/sql-editor";
 import { ResultTable } from "@/components/editor/result-table";
 import { cn } from "@/lib/utils";
-import type { ExerciseSpec } from "@/lib/lessons/types";
+import type { ExerciseSpec, SqlDialect } from "@/lib/lessons/types";
 import { checkExercise, type CheckResult } from "@/lib/lessons/exercise-checker";
 
 interface ExercisePanelProps {
   exercises: ExerciseSpec[];
   completedIds: Set<string>;
   onComplete: (exerciseId: string) => void;
+  dialect?: SqlDialect;
 }
 
 function ExerciseCard({
@@ -30,11 +31,13 @@ function ExerciseCard({
   index,
   completed,
   onComplete,
+  dialect,
 }: {
   exercise: ExerciseSpec;
   index: number;
   completed: boolean;
   onComplete: (id: string) => void;
+  dialect: SqlDialect;
 }) {
   const [value, setValue] = React.useState(exercise.starterQuery ?? "");
   const [checking, setChecking] = React.useState(false);
@@ -83,6 +86,7 @@ function ExerciseCard({
         onChange={setValue}
         onRun={handleCheck}
         minHeight="90px"
+        dialect={dialect}
       />
 
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -236,6 +240,7 @@ export function ExercisePanel({
   exercises,
   completedIds,
   onComplete,
+  dialect = "sqlite",
 }: ExercisePanelProps) {
   if (exercises.length === 0) {
     return (
@@ -253,6 +258,7 @@ export function ExercisePanel({
           index={i}
           completed={completedIds.has(ex.id)}
           onComplete={onComplete}
+          dialect={dialect}
         />
       ))}
     </div>
